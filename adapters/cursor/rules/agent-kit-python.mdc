@@ -1,0 +1,27 @@
+---
+description: Universal Agent Kit - Python skill routing
+globs: **/*.py, pyproject.toml, requirements*.txt
+alwaysApply: false
+---
+
+# Python skill routing
+
+When working on Python files, load the matching skill from `.cursor/skills/` or
+`~/.cursor/skills/` before starting:
+
+| Task | Skill |
+|------|-------|
+| Writing or changing code | `python-development` |
+| Tests, TDD, coverage | `python-testing` |
+| Failures and wrong behavior | `python-debugging` |
+| Review of a diff or file | `python-code-review` |
+| Restructuring without behavior change | `python-refactoring` |
+| Dependencies, pyproject.toml, builds | `python-packaging` |
+| Speed and memory | `python-performance` |
+| Untrusted input, secrets, auth | `python-security` |
+| Docstrings, README, API docs | `python-documentation` |
+| pandas, Polars, ETL | `python-data-engineering` |
+
+Technology skills apply only when the technology is a project dependency:
+`fastapi`, `django`, `sqlalchemy`, `postgresql`, `docker`, `ci-cd`,
+`machine-learning`, `observability`.

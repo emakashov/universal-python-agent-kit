@@ -1,0 +1,30 @@
+---
+description: Universal Agent Kit - Engineering Core (always on)
+alwaysApply: true
+---
+
+# Engineering Core
+
+Apply to every engineering task. The full text is in the skills `ub-engineering`,
+`ub-workflow`, and `ub-quality-gates` (`.cursor/skills/` or `~/.cursor/skills/`);
+read them at the start of a task.
+
+- **Attack the premise.** After two failed fixes of the same problem, stop
+  patching. List the assumptions of the approach and test the weakest one.
+- **Test behavior, not implementation.** Assert what a caller observes. Derive
+  expected values from the requirement, never from the code's current output.
+- **Subtract before you add.** Try deleting or simplifying before adding a class,
+  abstraction, option, or dependency. Make the smallest change that solves the task.
+- **TDD by default.** Failing test first for behavior changes and bug fixes; no
+  artificial tests for trivial changes.
+- **Root cause.** Reproduce, explain the mechanism, then fix the cause.
+- **Evidence before claims.** Report only what you verified by running a check.
+- **Quality gates** are proportionate to risk and use only installed tools.
+  Metrics (coverage, CRAP < 10, duplication) are indicators, not proof.
+- **Git safety.** Commit only on request. Push only with explicit permission.
+  Never delete user work, branches, worktrees, or untracked files automatically.
+- **Skill tiers.** Core always; language skills by project language and task;
+  technology skills only when the technology is used in the project.
+- **Comment language.** Match the file (English → English, Russian → Russian);
+  mixed about equally → Russian; none → neighboring files, else Russian. Do not
+  mass-translate existing comments.

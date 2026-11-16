@@ -1,0 +1,128 @@
+{
+  "name": "universal-python-agent-kit",
+  "version": "1.0.0",
+  "install_dir_name": "agent-kit",
+  "packs": {
+    "core": {
+      "tier": 1,
+      "kind": "core",
+      "path": "skills/core",
+      "skills": {
+        "ub-engineering": {},
+        "ub-workflow": {},
+        "ub-quality-gates": {}
+      }
+    },
+    "python": {
+      "tier": 2,
+      "kind": "language",
+      "path": "skills/python",
+      "detect": {
+        "files": ["pyproject.toml", "setup.py", "setup.cfg", "requirements*.txt", "Pipfile", "*.py", "src/**/*.py"]
+      },
+      "skills": {
+        "python-development": {},
+        "python-testing": {},
+        "python-debugging": {},
+        "python-code-review": {},
+        "python-refactoring": {},
+        "python-packaging": {},
+        "python-performance": {},
+        "python-security": {},
+        "python-documentation": {},
+        "python-data-engineering": {}
+      }
+    },
+    "tech": {
+      "tier": 3,
+      "kind": "technology",
+      "path": "skills/tech",
+      "skills": {
+        "fastapi": {
+          "languages": ["python"],
+          "detect": {"deps": ["fastapi"]}
+        },
+        "django": {
+          "languages": ["python"],
+          "detect": {"deps": ["django", "djangorestframework"], "files": ["manage.py"]}
+        },
+        "sqlalchemy": {
+          "languages": ["python"],
+          "detect": {"deps": ["sqlalchemy", "sqlmodel", "alembic"], "files": ["alembic.ini"]}
+        },
+        "machine-learning": {
+          "languages": ["python"],
+          "detect": {"deps": ["scikit-learn", "torch", "tensorflow", "keras", "xgboost", "lightgbm", "catboost", "transformers", "jax"]}
+        },
+        "postgresql": {
+          "detect": {"deps": ["psycopg", "psycopg2", "psycopg2-binary", "asyncpg", "pg8000"], "content": ["postgres"]}
+        },
+        "docker": {
+          "detect": {
+            "deps": ["docker", "python-on-whales"],
+            "files": ["Dockerfile", "Dockerfile.*", "*.Dockerfile", "compose.y*ml", "compose.*.y*ml", "docker-compose*.y*ml", "*/Dockerfile", "*/compose.y*ml", "*/docker-compose*.y*ml"]
+          }
+        },
+        "ci-cd": {
+          "detect": {"files": [".github/workflows/*.y*ml", ".gitlab-ci.yml", ".gitlab-ci.yaml", "Jenkinsfile", ".circleci/config.yml", "azure-pipelines.yml", ".woodpecker.yml"]}
+        },
+        "observability": {
+          "detect": {"deps": ["opentelemetry-api", "opentelemetry-sdk", "prometheus-client", "structlog", "sentry-sdk", "loguru", "statsd", "datadog"]}
+        }
+      }
+    }
+  },
+  "dependency_files": ["pyproject.toml", "requirements*.txt", "requirements/*.txt", "setup.cfg", "setup.py", "Pipfile", "environment.yml", "compose.y*ml", "docker-compose*.y*ml"],
+  "agents": {
+    "claude": {
+      "title": "Claude Code",
+      "marker": "~/.claude",
+      "user": {
+        "skills": "~/.claude/skills",
+        "files": {"~/.claude/rules/agent-kit.md": "AGENTS.md"}
+      },
+      "project": {
+        "skills": ".claude/skills",
+        "files": {".claude/rules/agent-kit.md": "AGENTS.md"}
+      }
+    },
+    "codex": {
+      "title": "OpenAI Codex and other agents that read .agents/skills",
+      "marker": "~/.codex",
+      "user": {
+        "skills": "~/.agents/skills",
+        "files": {"~/.codex/AGENTS.md": "AGENTS.md"}
+      },
+      "project": {
+        "skills": ".agents/skills",
+        "files": {"AGENTS.md": "AGENTS.md"}
+      }
+    },
+    "cursor": {
+      "title": "Cursor",
+      "marker": "~/.cursor",
+      "user": {
+        "skills": "~/.cursor/skills"
+      },
+      "project": {
+        "skills": ".cursor/skills",
+        "files": {
+          ".cursor/rules/agent-kit-core.mdc": "adapters/cursor/rules/agent-kit-core.mdc",
+          ".cursor/rules/agent-kit-python.mdc": "adapters/cursor/rules/agent-kit-python.mdc"
+        }
+      }
+    },
+    "gemini": {
+      "title": "Gemini CLI",
+      "marker": "~/.gemini",
+      "user": {
+        "skills": "~/.gemini/skills",
+        "files": {"~/.gemini/GEMINI.md": "AGENTS.md"}
+      },
+      "project": {
+        "skills": ".gemini/skills",
+        "files": {"GEMINI.md": "AGENTS.md"}
+      }
+    }
+  }
+}
