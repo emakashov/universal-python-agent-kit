@@ -19,6 +19,7 @@ import os
 import re
 import shutil
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -27,6 +28,9 @@ KIT_SRC = Path(__file__).resolve().parent
 # Everything else that must not be copied is listed in the kit's .gitignore.
 ALWAYS_IGNORED = {".git", ".gitignore"}
 CONFLICT_MODES = ("ask", "overwrite", "backup", "skip", "abort")
+# Install-time values in instruction files: <!-- kit:KEY -->value<!-- /kit:KEY -->.
+# The markers stay in the installed file, so the value can be rewritten on every run.
+RENDER_MARK = re.compile(r"(<!-- kit:([\w-]+) -->)(.*?)(<!-- /kit:\2 -->)", re.DOTALL)
 
 
 class Abort(Exception):
@@ -154,6 +158,29 @@ def same_content(a: Path, b: Path, rules: IgnoreRules) -> bool:
     if a.is_file() and b.is_file():
         return filecmp.cmp(a, b, shallow=False)
     return False
+
+
+def render(text: str, values: dict[str, str]) -> str:
+    return RENDER_MARK.sub(lambda m: m.group(1) + values.get(m.group(2), m.group(3)) + m.group(4), text)
+
+
+def differs_only_in_rendered_values(a: Path, b: Path) -> bool:
+    """True when two files are equal once the values between kit markers are blanked.
+
+    Such a difference is the installer's own output (for example, a changed list of
+    user skills), not an edit by the user, so it is safe to replace without asking.
+    """
+    if not (a.is_file() and b.is_file()):
+        return False
+    text_a = a.read_text(encoding="utf-8", errors="replace")
+    text_b = b.read_text(encoding="utf-8", errors="replace")
+    if not RENDER_MARK.search(text_b):
+        return False
+
+    def blank(text: str) -> str:
+        return RENDER_MARK.sub(lambda m: m.group(1) + m.group(4), text)
+
+    return blank(text_a) == blank(text_b)
 
 
 def describe(path: Path) -> str:
@@ -315,6 +342,11 @@ class Installer:
             else:
                 self.log("ok", dst)
             return
+        if not dst.is_symlink() and differs_only_in_rendered_values(dst, ref):
+            self.remove(dst)
+            self.create(src, dst, link)
+            self.log("updated", dst, "install-time values such as the user skills list")
+            return
         action = self.resolve_conflict(ref, dst)
         if action == "skip":
             self.log("skipped", dst, "existing content kept")
@@ -454,6 +486,16 @@ def user_skills_report(user_dir: Path, kit_names: set[str]) -> list[str]:
     return lines
 
 
+def render_values(user_dir: Path, user_skill_names: list[str], home: Path) -> dict[str, str]:
+    """Values written between kit markers in the installed instruction files."""
+    try:
+        shown_dir = f"~/{user_dir.relative_to(home).as_posix()}/"
+    except ValueError:
+        shown_dir = f"{user_dir.as_posix()}/"
+    listed = ", ".join(f"`{name}`" for name in user_skill_names)
+    return {"user-skills": listed or "none installed", "user-skills-dir": shown_dir}
+
+
 def expand(path: str, home: Path, project: Path | None) -> Path:
     if path.startswith("~/"):
         return home / path[2:]
@@ -539,6 +581,11 @@ def cmd_install(args, manifest: dict, kit_home: Path, home: Path, project: Path 
     agents = select_agents(manifest, args.agents, home)
     scope = "project" if project else "user"
     user_dir = user_skills_dir(manifest, kit_home)
+    # The list written into the instructions does not depend on the scope: the
+    # installed AGENTS.md is shared by every scope, and a project run must not reset it.
+    all_kit_names = {s for pack in manifest["packs"].values() for s in pack["skills"]}
+    listed_user_skills = [n for n, _ in find_user_skills(user_dir) if n not in all_kit_names]
+    values = render_values(user_dir, listed_user_skills, home)
     # Only in the user scope: a link into a personal directory must not end up in a
     # project's repository. Agents still read them from user_dir as AGENTS.md says.
     user_skills = find_user_skills(user_dir) if scope == "user" else []
@@ -564,13 +611,28 @@ def cmd_install(args, manifest: dict, kit_home: Path, home: Path, project: Path 
             print("\n".join(user_skills_report(user_dir, kit_names)))
         print("\nDry run: nothing will be changed.")
 
+    # Instruction files are rendered into a staging directory first, so that the
+    # usual compare, diff, and conflict handling applies to the rendered version.
+    rendered = set(manifest.get("rendered_files", []))
+    stage = Path(tempfile.mkdtemp(prefix="agent-kit-render-"))
+    for rel in rendered:
+        (stage / rel).parent.mkdir(parents=True, exist_ok=True)
+        text = (KIT_SRC / rel).read_text(encoding="utf-8")
+        (stage / rel).write_text(render(text, values), encoding="utf-8")
+
+    def source(rel: Path | str) -> Path:
+        """Where the kit version of ``rel`` comes from: rendered or as is."""
+        return stage / rel if Path(rel).as_posix() in rendered else KIT_SRC / rel
+
     try:
         if KIT_SRC != kit_home.resolve():
             print(f"\n[1/2] Copying the kit to {kit_home}")
             for rel in iter_files(KIT_SRC, rules):
-                inst.place(KIT_SRC / rel, kit_home / rel, link=False)
+                inst.place(source(rel), kit_home / rel, link=False)
         else:
-            print("\n[1/2] Running from the install directory; nothing to copy")
+            print("\n[1/2] Running from the install directory; updating rendered files only")
+            for rel in sorted(rendered):
+                inst.place(source(rel), kit_home / rel, link=False)
 
         if scope == "user" and not user_dir.exists():
             if not args.dry_run:
@@ -586,10 +648,10 @@ def cmd_install(args, manifest: dict, kit_home: Path, home: Path, project: Path 
             items: list[tuple[Path, Path, Path]] = []
             if cfg.get("skills"):
                 skills_dir = expand(cfg["skills"], home, project)
-                items += [(skills_dir / name, kit_home / rel, KIT_SRC / rel) for name, rel in skills]
+                items += [(skills_dir / name, kit_home / rel, source(rel)) for name, rel in skills]
                 items += [(skills_dir / name, path, path) for name, path in user_skills]
             if not args.no_instructions:
-                items += [(expand(dst, home, project), kit_home / rel, KIT_SRC / rel)
+                items += [(expand(dst, home, project), kit_home / rel, source(rel))
                           for dst, rel in cfg.get("files", {}).items()]
             for dst, src, content in items:
                 if dst in done:
@@ -600,6 +662,8 @@ def cmd_install(args, manifest: dict, kit_home: Path, home: Path, project: Path 
         print(f"\nInstallation aborted: {exc}")
         print("Changes made before this point were kept; re-run the installer to continue.")
         return 2
+    finally:
+        shutil.rmtree(stage, ignore_errors=True)
 
     summary = ", ".join(f"{count} {status}" for status, count in sorted(inst.counts.items()))
     print(f"\nDone: {summary}{' (dry run)' if args.dry_run else ''}.")

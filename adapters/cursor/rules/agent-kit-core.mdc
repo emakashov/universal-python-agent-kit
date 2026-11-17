@@ -23,8 +23,8 @@ read them at the start of a task.
   Metrics (coverage, CRAP < 10, duplication) are indicators, not proof.
 - **Git safety.** Commit only on request. Push only with explicit permission.
   Never delete user work, branches, worktrees, or untracked files automatically.
-- **User skills.** For every task, engineering or not, read and apply each
-  `~/ai/user-skills/*/SKILL.md` (the `user-skills` directory next to the kit).
+- **User skills.** For every task, engineering or not, load and apply: <!-- kit:user-skills -->none installed<!-- /kit:user-skills -->
+  (from `<!-- kit:user-skills-dir -->~/ai/user-skills/<!-- /kit:user-skills-dir -->`).
 - **Skill tiers.** Core always; language skills by project language and task;
   technology skills only when the technology is used in the project.
 - **Comment language.** Match the file (English → English, Russian → Russian);

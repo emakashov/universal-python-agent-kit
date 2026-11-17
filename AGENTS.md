@@ -24,21 +24,23 @@ its technology mandatory for the project.
 
 | Tier | Activation | Skills |
 |------|------------|--------|
-| 0. User Skills | **Always**, for every task of any kind, not only engineering | every skill in the user skills directory |
+| 0. User Skills | **Always**, for every task of any kind, not only engineering | <!-- kit:user-skills -->none installed<!-- /kit:user-skills --> |
 | 1. Engineering Core | **Always**, for every engineering task | `ub-engineering`, `ub-workflow`, `ub-quality-gates` |
 | 2. Language & Engineering | By project language **and** task type | Python: `python-development`, `python-testing`, `python-debugging`, `python-code-review`, `python-refactoring`, `python-packaging`, `python-performance`, `python-security`, `python-documentation`, `python-data-engineering` |
 | 3. Technology Specialists | **Only** if the technology is used in the project | `fastapi`, `django`, `sqlalchemy`, `postgresql`, `docker`, `ci-cd`, `machine-learning`, `observability` |
 
-The user skills directory is `~/ai/user-skills/`: the `user-skills` directory next
-to the kit directory, so `<prefix>/user-skills/` when the kit was installed under
-another prefix. Each subdirectory with a `SKILL.md` is one skill. The directory is
-personal and is not part of the kit's repository. The installer also links these
-skills into the agent's user skills directory under the same names.
+Tier 0 skills are the user's own. In the agent's skills directory they sit next to
+the kit's skills and are not marked, so the table above is the authoritative list:
+the installer writes it from `<!-- kit:user-skills-dir -->~/ai/user-skills/<!-- /kit:user-skills-dir -->`
+at install time and links each skill into the agent's skills directory under the
+same name. Re-run the installer after adding or removing a user skill.
 
 Activation procedure, at the start of a task:
 
-0. For every task, engineering or not, load every Tier 0 skill: read each
-   `~/ai/user-skills/*/SKILL.md`. If the directory is missing or empty, skip this step.
+0. For every task, engineering or not, load every Tier 0 skill named in the table
+   by name, through the agent's skill mechanism. Without one, read
+   `<!-- kit:user-skills-dir -->~/ai/user-skills/<!-- /kit:user-skills-dir --><name>/SKILL.md`.
+   If the table says "none installed", skip this step.
 1. For an engineering task, load the three Tier 1 skills. They are language-independent.
 2. Detect the project's languages from its manifests and sources
    (`pyproject.toml`, `requirements*.txt`, `*.py` → Python). Load the Tier 2 skills of
