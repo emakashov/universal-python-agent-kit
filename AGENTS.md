@@ -100,6 +100,10 @@ has installed. The full policy is in `ub-quality-gates`.
 - File has no comments → follow neighboring files; if the project has no convention,
   use Russian.
 - Do not mass-translate existing comments without a reason.
+- Never use the letter «ё» in comments; write «е» instead ("еще", not "ещё").
+- No period at the end of a sentence or paragraph when nothing follows it or
+  only a blank line does (paragraphs are separated by a blank line). Periods
+  between sentences stay: `# Кэш сбрасывается вручную. Иначе тесты падают`
 
 Identifiers, commit messages, and log messages follow the project's existing
 convention (English when there is none).

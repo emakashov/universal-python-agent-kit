@@ -27,4 +27,6 @@ read them at the start of a task.
   technology skills only when the technology is used in the project.
 - **Comment language.** Match the file (English → English, Russian → Russian);
   mixed about equally → Russian; none → neighboring files, else Russian. Do not
-  mass-translate existing comments.
+  mass-translate existing comments. Never use the letter «ё» in comments;
+  write «е» instead. No period at the end of a sentence or paragraph when
+  nothing or only a blank line follows it; periods between sentences stay.

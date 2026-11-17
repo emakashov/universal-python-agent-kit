@@ -73,4 +73,4 @@ Tier 2. Apply together with the Tier 1 core skills. The project's own convention
 ## Finishing
 
 Run the project's formatter, linter, type checker, and tests per `ub-quality-gates`.
-Comment language follows the rule in `ub-engineering`.
+Comment language and punctuation follow `python-documentation`.

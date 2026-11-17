@@ -25,6 +25,11 @@ docs that describe it in the same piece of work.
 - No comments in the file → follow neighboring files; with no project
   convention, use Russian.
 - Do not mass-translate existing comments without a reason.
+- Never use the letter «ё» in comments or docstrings; write «е» instead
+  ("еще", not "ещё").
+- No period at the end of a sentence or paragraph when nothing follows it or
+  only a blank line does (paragraphs are separated by a blank line). Periods
+  between sentences stay: `# Кэш сбрасывается вручную. Иначе тесты падают`
 
 Docstrings follow the same rule unless the project publishes API docs in a
 specific language. User-facing docs (README, guides) use the language the
@@ -46,17 +51,17 @@ reST); Google style when there is none.
 
 ```python
 def parse_window(spec: str, *, tz: tzinfo = UTC) -> TimeWindow:
-    """Parse a time window such as ``"09:00-17:30"``.
+    """Parse a time window such as ``"09:00-17:30"``
 
     Args:
-        spec: Start and end in 24-hour ``HH:MM-HH:MM`` form.
-        tz: Timezone both ends are interpreted in.
+        spec: Start and end in 24-hour ``HH:MM-HH:MM`` form
+        tz: Timezone both ends are interpreted in
 
     Returns:
-        The window. An end earlier than the start means it crosses midnight.
+        The window. An end earlier than the start means it crosses midnight
 
     Raises:
-        ValueError: If ``spec`` is not in the expected form.
+        ValueError: If ``spec`` is not in the expected form
     """
 ```
 

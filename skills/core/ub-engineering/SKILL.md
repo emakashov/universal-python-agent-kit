@@ -93,7 +93,5 @@ duplication, and have the fewest elements.
 
 ## 8. Code comments
 
-Write comments that explain why, not what. Language of new comments: match the
-file (English → English, Russian → Russian); mixed about equally → Russian; no
-comments → follow neighboring files, and Russian when the project has no
-convention. Do not mass-translate existing comments.
+Write comments that explain why, not what. Language and punctuation of comments
+are set in `AGENTS.md` and the language pack's documentation skill.
