@@ -23,7 +23,9 @@ import time
 from pathlib import Path
 
 KIT_SRC = Path(__file__).resolve().parent
-IGNORED_NAMES = {"__pycache__", ".git", ".DS_Store", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+# Never part of the installed kit: VCS data and the ignore file itself.
+# Everything else that must not be copied is listed in the kit's .gitignore.
+ALWAYS_IGNORED = {".git", ".gitignore"}
 CONFLICT_MODES = ("ask", "overwrite", "backup", "skip", "abort")
 
 
@@ -39,18 +41,115 @@ def load_manifest(root: Path) -> dict:
         return json.load(fh)
 
 
-def iter_files(root: Path):
-    """Yield files under ``root`` relative to it, skipping caches and VCS data."""
+def _glob_to_regex(glob: str) -> str:
+    """Translate one gitignore glob into a regex over a ``/``-separated path."""
+    out, i, n = [], 0, len(glob)
+    while i < n:
+        if glob.startswith("**/", i):
+            out.append("(?:.*/)?")
+            i += 3
+        elif glob.startswith("/**", i) and i + 3 == n:
+            out.append("/.*")
+            i += 3
+        elif glob.startswith("**", i):
+            out.append(".*")
+            i += 2
+        elif glob[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif glob[i] == "?":
+            out.append("[^/]")
+            i += 1
+        elif glob[i] == "[" and "]" in glob[i + 2:]:
+            end = glob.index("]", i + 2)
+            body = glob[i + 1:end]
+            if body.startswith("!"):
+                body = "^" + body[1:]
+            out.append("[" + body.replace("\\", "\\\\") + "]")
+            i = end + 1
+        elif glob[i] == "\\" and i + 1 < n:
+            out.append(re.escape(glob[i + 1]))
+            i += 2
+        else:
+            out.append(re.escape(glob[i]))
+            i += 1
+    return "".join(out)
+
+
+class IgnoreRules:
+    """The subset of gitignore syntax the installer needs.
+
+    Supported: comments, blank lines, ``!`` negation, a trailing ``/`` for
+    directories only, anchoring by a leading or inner ``/``, ``*``, ``?``,
+    ``[...]``, and ``**``. Paths are matched relative to the walked root.
+    """
+
+    def __init__(self, lines: list[str]):
+        self.rules: list[tuple[re.Pattern[str], bool, bool, bool]] = []
+        for raw in lines:
+            line = raw.rstrip("\n").rstrip()
+            if not line or line.startswith("#"):
+                continue
+            negate = line.startswith("!")
+            if negate:
+                line = line[1:]
+            elif line.startswith(("\\!", "\\#")):
+                line = line[1:]
+            dir_only = line.endswith("/")
+            line = line.rstrip("/")
+            if not line:
+                continue
+            anchored = "/" in line
+            pattern = re.compile(_glob_to_regex(line.lstrip("/")) + r"\Z", re.DOTALL)
+            self.rules.append((pattern, negate, dir_only, anchored))
+
+    @classmethod
+    def load(cls, root: Path) -> IgnoreRules:
+        path = root / ".gitignore"
+        if not path.is_file():
+            return cls([])
+        return cls(path.read_text(encoding="utf-8").splitlines())
+
+    def ignored(self, rel: str, is_dir: bool) -> bool:
+        """Decide for one path whose parent directories are already known to be kept."""
+        name = rel.rsplit("/", 1)[-1]
+        if name in ALWAYS_IGNORED:
+            return True
+        result = False
+        for pattern, negate, dir_only, anchored in self.rules:
+            if dir_only and not is_dir:
+                continue
+            if pattern.match(rel if anchored else name):
+                result = not negate
+        return result
+
+    def ignored_path(self, rel: Path) -> bool:
+        """Like ``ignored`` for a file, also checking every parent directory."""
+        parts = rel.parts
+        for depth in range(1, len(parts)):
+            if self.ignored("/".join(parts[:depth]), is_dir=True):
+                return True
+        return self.ignored(rel.as_posix(), is_dir=False)
+
+
+def iter_files(root: Path, rules: IgnoreRules):
+    """Yield files under ``root`` relative to it, skipping paths that ``rules`` ignore.
+
+    An ignored directory is not entered, so, as in git, nothing inside it
+    can be re-included by a negated pattern.
+    """
     for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames if d not in IGNORED_NAMES)
+        base = Path(dirpath).relative_to(root)
+        dirnames[:] = sorted(d for d in dirnames if not rules.ignored((base / d).as_posix(), is_dir=True))
         for name in sorted(filenames):
-            if name not in IGNORED_NAMES and not name.endswith(".pyc"):
-                yield (Path(dirpath) / name).relative_to(root)
+            rel = base / name
+            if not rules.ignored(rel.as_posix(), is_dir=False):
+                yield rel
 
 
-def same_content(a: Path, b: Path) -> bool:
+def same_content(a: Path, b: Path, rules: IgnoreRules) -> bool:
     if a.is_dir() and b.is_dir():
-        files_a, files_b = set(iter_files(a)), set(iter_files(b))
+        files_a, files_b = set(iter_files(a, rules)), set(iter_files(b, rules))
         return files_a == files_b and all(filecmp.cmp(a / f, b / f, shallow=False) for f in files_a)
     if a.is_file() and b.is_file():
         return filecmp.cmp(a, b, shallow=False)
@@ -77,7 +176,7 @@ def file_diff(existing: Path, new: Path, label: str) -> list[str]:
     )
 
 
-def build_diff(existing: Path, new: Path) -> str:
+def build_diff(existing: Path, new: Path, rules: IgnoreRules) -> str:
     """Describe how ``existing`` differs from the kit's ``new``, like ``diff -ru``."""
     out: list[str] = []
     if existing.is_symlink():
@@ -87,7 +186,7 @@ def build_diff(existing: Path, new: Path) -> str:
     if existing.is_file() and new.is_file():
         out += file_diff(existing, new, new.name) or ["(contents are identical)\n"]
     elif existing.is_dir() and new.is_dir():
-        old_files, new_files = set(iter_files(existing)), set(iter_files(new))
+        old_files, new_files = set(iter_files(existing, rules)), set(iter_files(new, rules))
         for rel in sorted(old_files | new_files):
             if rel not in new_files:
                 out.append(f"Only in existing: {rel}\n")
@@ -104,8 +203,10 @@ def build_diff(existing: Path, new: Path) -> str:
 
 
 class Installer:
-    def __init__(self, mode: str, backup_dir: Path, dry_run: bool, interactive: bool):
+    def __init__(self, mode: str, backup_dir: Path, dry_run: bool, interactive: bool,
+                 rules: IgnoreRules):
         self.mode = mode
+        self.rules = rules
         self.backup_dir = backup_dir
         self.dry_run = dry_run
         self.interactive = interactive
@@ -144,7 +245,7 @@ class Installer:
                 answer.rstrip("!")
             )
             if choice == "diff":
-                print(build_diff(dst, src))
+                print(build_diff(dst, src, self.rules))
             elif choice == "abort":
                 raise Abort("stopped at the user's request")
             elif choice:
@@ -178,7 +279,9 @@ class Installer:
         if link:
             os.symlink(src, dst, target_is_directory=src.is_dir())
         elif src.is_dir():
-            shutil.copytree(src, dst, ignore=shutil.ignore_patterns(*IGNORED_NAMES, "*.pyc"))
+            for rel in iter_files(src, self.rules):
+                (dst / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src / rel, dst / rel)
         else:
             shutil.copy2(src, dst)
 
@@ -204,7 +307,7 @@ class Installer:
             self.create(src, dst, link)
             self.log("linked" if link else "copied", dst, f"replaced broken link -> {stale}")
             return
-        if not dst.is_symlink() and same_content(dst, ref):
+        if not dst.is_symlink() and same_content(dst, ref, self.rules):
             if link:  # an identical copy: replacing it with a link loses nothing
                 self.remove(dst)
                 self.create(src, dst, link)
@@ -374,7 +477,8 @@ def cmd_install(args, manifest: dict, kit_home: Path, home: Path, project: Path 
     interactive = sys.stdin.isatty() and sys.stdout.isatty()
     stamp = time.strftime("%Y%m%d-%H%M%S")
     backup_dir = kit_home.parent / f"{kit_home.name}-backups" / stamp
-    inst = Installer(args.on_conflict, backup_dir, args.dry_run, interactive)
+    rules = IgnoreRules.load(KIT_SRC)
+    inst = Installer(args.on_conflict, backup_dir, args.dry_run, interactive, rules)
 
     languages, skills = select_skills(manifest, args.languages, args.tech, project)
     agents = select_agents(manifest, args.agents, home)
@@ -391,7 +495,7 @@ def cmd_install(args, manifest: dict, kit_home: Path, home: Path, project: Path 
     try:
         if KIT_SRC != kit_home.resolve():
             print(f"\n[1/2] Copying the kit to {kit_home}")
-            for rel in iter_files(KIT_SRC):
+            for rel in iter_files(KIT_SRC, rules):
                 inst.place(KIT_SRC / rel, kit_home / rel, link=False)
         else:
             print("\n[1/2] Running from the install directory; nothing to copy")
