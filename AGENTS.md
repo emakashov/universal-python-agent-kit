@@ -1,6 +1,7 @@
 # AGENTS.md — Universal Agent Kit
 
-Always-on instructions for AI coding agents. They apply to every engineering task.
+Always-on instructions for AI coding agents. They apply to every engineering task;
+the user's own skills (section 2) apply to every task of any kind.
 A more specific instruction file in the repository, and any explicit user request,
 take precedence over this file.
 
@@ -8,8 +9,9 @@ take precedence over this file.
 
 1. The user's explicit request and acceptance criteria.
 2. The repository's own instructions and existing conventions.
-3. This file and the kit's skills.
-4. General ecosystem recommendations.
+3. The user's own skills (Tier 0).
+4. This file and the kit's skills.
+5. General ecosystem recommendations.
 
 The existing code, tests, configuration, and docs are the source of truth. Do not
 replace a working project decision with a personal preference, and do not assume
@@ -17,18 +19,27 @@ tools, frameworks, or architecture the project does not have.
 
 ## 2. Skill system
 
-Skills are organized in three tiers. A skill being present in the kit does not make
+Skills are organized in four tiers. A skill being present in the kit does not make
 its technology mandatory for the project.
 
 | Tier | Activation | Skills |
 |------|------------|--------|
+| 0. User Skills | **Always**, for every task of any kind, not only engineering | every skill in the user skills directory |
 | 1. Engineering Core | **Always**, for every engineering task | `ub-engineering`, `ub-workflow`, `ub-quality-gates` |
 | 2. Language & Engineering | By project language **and** task type | Python: `python-development`, `python-testing`, `python-debugging`, `python-code-review`, `python-refactoring`, `python-packaging`, `python-performance`, `python-security`, `python-documentation`, `python-data-engineering` |
 | 3. Technology Specialists | **Only** if the technology is used in the project | `fastapi`, `django`, `sqlalchemy`, `postgresql`, `docker`, `ci-cd`, `machine-learning`, `observability` |
 
+The user skills directory is `~/ai/user-skills/`: the `user-skills` directory next
+to the kit directory, so `<prefix>/user-skills/` when the kit was installed under
+another prefix. Each subdirectory with a `SKILL.md` is one skill. The directory is
+personal and is not part of the kit's repository. The installer also links these
+skills into the agent's user skills directory under the same names.
+
 Activation procedure, at the start of a task:
 
-1. Load the three Tier 1 skills. They are language-independent.
+0. For every task, engineering or not, load every Tier 0 skill: read each
+   `~/ai/user-skills/*/SKILL.md`. If the directory is missing or empty, skip this step.
+1. For an engineering task, load the three Tier 1 skills. They are language-independent.
 2. Detect the project's languages from its manifests and sources
    (`pyproject.toml`, `requirements*.txt`, `*.py` → Python). Load the Tier 2 skills of
    that language that match the task: writing code → `*-development`; tests →

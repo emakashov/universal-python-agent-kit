@@ -405,6 +405,55 @@ def select_skills(manifest: dict, languages: str, tech: str, project: Path | Non
 # ------------------------------------------------------------------------ targets
 
 
+def user_skills_dir(manifest: dict, kit_home: Path) -> Path:
+    """The user's own always-on skills live next to the kit, outside its repository."""
+    return kit_home.parent / manifest["user_skills_dir_name"]
+
+
+def find_user_skills(user_dir: Path) -> list[tuple[str, Path]]:
+    """Return (name, path) for every subdirectory of ``user_dir`` that holds a SKILL.md."""
+    if not user_dir.is_dir():
+        return []
+    return [(p.name, p) for p in sorted(user_dir.iterdir()) if (p / "SKILL.md").is_file()]
+
+
+def skill_description(skill_md: Path) -> str:
+    """Read ``description`` from the SKILL.md frontmatter; empty when there is none."""
+    lines = skill_md.read_text(encoding="utf-8", errors="replace").splitlines()
+    if not lines or lines[0] != "---":
+        return ""
+    for line in lines[1:]:
+        if line == "---":
+            break
+        key, sep, value = line.partition(":")
+        if sep and key == "description":
+            return value.strip()
+    return ""
+
+
+def user_skills_report(user_dir: Path, kit_names: set[str]) -> list[str]:
+    """Describe every entry of ``user_dir``: what is installed and what is skipped and why."""
+    if not user_dir.is_dir():
+        return ["  (none: the directory does not exist yet)"]
+    entries = sorted(p for p in user_dir.iterdir() if p.is_dir())
+    if not entries:
+        return ["  (none)"]
+    width = max(len(p.name) for p in entries)
+    lines = []
+    for path in entries:
+        skill_md = path / "SKILL.md"
+        if not skill_md.is_file():
+            note = "skipped: no SKILL.md"
+        elif path.name in kit_names:
+            note = "skipped: same name as a kit skill"
+        else:
+            description = skill_description(skill_md) or "(no description in frontmatter)"
+            note = description if len(description) <= 80 else description[:77] + "..."
+        lines.append(f"  {path.name:<{width}}  {note}")
+        lines.append(f"  {'':<{width}}  {path}")
+    return lines
+
+
 def expand(path: str, home: Path, project: Path | None) -> Path:
     if path.startswith("~/"):
         return home / path[2:]
@@ -438,8 +487,13 @@ def ask_prefix(default: Path) -> Path:
 # ----------------------------------------------------------------------- commands
 
 
-def cmd_list(manifest: dict) -> None:
+def cmd_list(manifest: dict, user_dir: Path) -> None:
     print(f"{manifest['name']} {manifest['version']}\n")
+    print(f"Tier 0 - user skills ({user_dir})")
+    kit_names = {s for pack in manifest["packs"].values() for s in pack["skills"]}
+    names = [name for name, _ in find_user_skills(user_dir)]
+    print("\n".join(f"  {name}{'  (skipped: same name as a kit skill)' if name in kit_names else ''}"
+                    for name in names) or "  (none)")
     for name, pack in manifest["packs"].items():
         print(f"Tier {pack['tier']} - {name} ({pack['kind']})")
         for skill, meta in pack["skills"].items():
@@ -453,7 +507,7 @@ def cmd_list(manifest: dict) -> None:
 def cmd_uninstall(manifest: dict, kit_home: Path, home: Path, project: Path | None, dry_run: bool) -> None:
     scope = "project" if project else "user"
     removed = 0
-    kit_real = kit_home.resolve()
+    owned = [kit_home.resolve(), user_skills_dir(manifest, kit_home).resolve()]
     for agent in manifest["agents"].values():
         cfg = agent.get(scope, {})
         candidates: list[Path] = [expand(p, home, project) for p in cfg.get("files", {})]
@@ -464,13 +518,14 @@ def cmd_uninstall(manifest: dict, kit_home: Path, home: Path, project: Path | No
             if not path.is_symlink():
                 continue
             target = Path(os.path.realpath(path))
-            if target == kit_real or kit_real in target.parents:
+            if any(target == root or root in target.parents for root in owned):
                 print(f"  removed   {path}")
                 removed += 1
                 if not dry_run:
                     path.unlink()
     print(f"\n{removed} symlink(s) removed{' (dry run)' if dry_run else ''}. "
-          f"Copies made with --copy and the kit directory {kit_home} are left in place.")
+          f"Copies made with --copy, the kit directory {kit_home}, and the user skills "
+          f"directory {user_skills_dir(manifest, kit_home)} are left in place.")
 
 
 def cmd_install(args, manifest: dict, kit_home: Path, home: Path, project: Path | None) -> int:
@@ -483,14 +538,31 @@ def cmd_install(args, manifest: dict, kit_home: Path, home: Path, project: Path 
     languages, skills = select_skills(manifest, args.languages, args.tech, project)
     agents = select_agents(manifest, args.agents, home)
     scope = "project" if project else "user"
+    user_dir = user_skills_dir(manifest, kit_home)
+    # Only in the user scope: a link into a personal directory must not end up in a
+    # project's repository. Agents still read them from user_dir as AGENTS.md says.
+    user_skills = find_user_skills(user_dir) if scope == "user" else []
+    kit_names = {name for name, _ in skills}
+    clashes = [name for name, _ in user_skills if name in kit_names]
+    user_skills = [(name, path) for name, path in user_skills if name not in kit_names]
 
     print(f"Kit directory : {kit_home}")
     print(f"Scope         : {scope}{f' ({project})' if project else ''}")
     print(f"Agents        : {', '.join(agents)}")
     print(f"Languages     : {', '.join(languages) or 'none detected (core only)'}")
     print(f"Skills        : {', '.join(name for name, _ in skills)}")
+    if scope == "user":
+        print(f"User skills   : {', '.join(name for name, _ in user_skills) or 'none'} ({user_dir})")
+    else:
+        print(f"User skills   : not linked in the project scope (agents read them from {user_dir})")
+    for name in clashes:
+        print(f"  warning: user skill {name} has the same name as a kit skill; "
+              f"the kit skill is installed, rename yours to use it")
     if args.dry_run:
-        print("Dry run: nothing will be changed.")
+        if scope == "user":
+            print(f"\nUser skills in {user_dir}:")
+            print("\n".join(user_skills_report(user_dir, kit_names)))
+        print("\nDry run: nothing will be changed.")
 
     try:
         if KIT_SRC != kit_home.resolve():
@@ -500,22 +572,30 @@ def cmd_install(args, manifest: dict, kit_home: Path, home: Path, project: Path 
         else:
             print("\n[1/2] Running from the install directory; nothing to copy")
 
+        if scope == "user" and not user_dir.exists():
+            if not args.dry_run:
+                user_dir.mkdir(parents=True)
+            print(f"\n  created   {user_dir}  (put your always-on skills here)")
+
         print(f"\n[2/2] {'Copying' if args.copy else 'Linking'} skills and instructions")
         link = not args.copy
         done: set[Path] = set()
         for agent_name in agents:
             cfg = manifest["agents"][agent_name].get(scope, {})
-            items: list[tuple[Path, str]] = []
+            # (target, source, source to compare with while the kit is not copied yet)
+            items: list[tuple[Path, Path, Path]] = []
             if cfg.get("skills"):
                 skills_dir = expand(cfg["skills"], home, project)
-                items += [(skills_dir / name, rel) for name, rel in skills]
+                items += [(skills_dir / name, kit_home / rel, KIT_SRC / rel) for name, rel in skills]
+                items += [(skills_dir / name, path, path) for name, path in user_skills]
             if not args.no_instructions:
-                items += [(expand(dst, home, project), rel) for dst, rel in cfg.get("files", {}).items()]
-            for dst, rel in items:
+                items += [(expand(dst, home, project), kit_home / rel, KIT_SRC / rel)
+                          for dst, rel in cfg.get("files", {}).items()]
+            for dst, src, content in items:
                 if dst in done:
                     continue
                 done.add(dst)
-                inst.place(kit_home / rel, dst, link=link, content=KIT_SRC / rel)
+                inst.place(src, dst, link=link, content=content)
     except Abort as exc:
         print(f"\nInstallation aborted: {exc}")
         print("Changes made before this point were kept; re-run the installer to continue.")
@@ -563,11 +643,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     manifest = load_manifest(KIT_SRC)
+    home = Path(args.home).expanduser().resolve() if args.home else Path.home()
     if args.list:
-        cmd_list(manifest)
+        prefix = Path(args.prefix or os.environ.get("AGENT_KIT_PREFIX") or home / "ai").expanduser()
+        cmd_list(manifest, user_skills_dir(manifest, (prefix / manifest["install_dir_name"]).resolve()))
         return 0
 
-    home = Path(args.home).expanduser().resolve() if args.home else Path.home()
     project = Path(args.project).expanduser().resolve() if args.project else None
     if project and not project.is_dir():
         sys.exit(f"error: project directory not found: {project}")

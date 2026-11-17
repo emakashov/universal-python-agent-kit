@@ -2,6 +2,7 @@
   "name": "universal-python-agent-kit",
   "version": "1.0.0",
   "install_dir_name": "agent-kit",
+  "user_skills_dir_name": "user-skills",
   "packs": {
     "core": {
       "tier": 1,
