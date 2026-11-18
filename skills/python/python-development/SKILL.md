@@ -42,6 +42,7 @@ Tier 2. Apply together with the Tier 1 core skills. The project's own convention
 
 ## Errors
 
+- Exception messages are in English, like all text other than comments and docs.
 - Raise specific exceptions; define a small project hierarchy for domain errors.
 - Catch only what you can handle, at the level that can handle it. No bare
   `except:` and no `except Exception: pass`.

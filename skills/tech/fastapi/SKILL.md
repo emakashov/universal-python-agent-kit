@@ -53,6 +53,7 @@ Tier 3. Activate only if `fastapi` is a project dependency. Combine with
 
 - Raise `HTTPException` in the HTTP layer only. Services raise domain exceptions;
   map them to responses with `@app.exception_handler`.
+- Error messages and response texts are always in English.
 - One consistent error body shape across the API. Do not leak tracebacks or SQL.
 - Correct status codes: 400/422 invalid input, 401 unauthenticated, 403
   forbidden, 404 missing, 409 conflict, 201 with `Location` for created.

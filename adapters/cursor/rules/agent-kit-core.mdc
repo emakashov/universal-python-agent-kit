@@ -27,8 +27,12 @@ read them at the start of a task.
   (from `<!-- kit:user-skills-dir -->~/ai/user-skills/<!-- /kit:user-skills-dir -->`).
 - **Skill tiers.** Core always; language skills by project language and task;
   technology skills only when the technology is used in the project.
+- **English everywhere except comments and docs.** Log messages, exception and
+  API error messages, CLI output, identifiers, and commit messages are always
+  in English. Russian is allowed only in comments, docstrings, and docs.
 - **Comment language.** Match the file (English → English, Russian → Russian);
   mixed about equally → Russian; none → neighboring files, else Russian. Do not
   mass-translate existing comments. Never use the letter «ё» in comments;
-  write «е» instead. No period at the end of a sentence or paragraph when
+  write «е» instead. Never use the em dash `—` in comments or docs; use the
+  hyphen `-` instead. No period at the end of a sentence or paragraph when
   nothing or only a blank line follows it; periods between sentences stay.

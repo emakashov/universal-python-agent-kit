@@ -19,6 +19,10 @@ docs that describe it in the same piece of work.
 
 ## Language of comments
 
+Russian is allowed only in comments, docstrings, and documentation. Log messages,
+exception messages, API and validation errors, CLI output, identifiers, and
+commit messages are always in English, even in a file with Russian comments.
+
 - English comments in the file → new comments in English.
 - Russian comments in the file → new comments in Russian.
 - Both used about equally → prefer Russian.
@@ -27,6 +31,8 @@ docs that describe it in the same piece of work.
 - Do not mass-translate existing comments without a reason.
 - Never use the letter «ё» in comments or docstrings; write «е» instead
   ("еще", not "ещё").
+- Never use the em dash `—` in comments, docstrings, or documentation; use
+  the hyphen `-` instead (`# Кэш - временный`, not `# Кэш — временный`).
 - No period at the end of a sentence or paragraph when nothing follows it or
   only a blank line does (paragraphs are separated by a blank line). Periods
   between sentences stay: `# Кэш сбрасывается вручную. Иначе тесты падают`

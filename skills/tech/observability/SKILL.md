@@ -21,6 +21,7 @@ cost and noise: subtract before you add.
 - Use the project's logger. Python: `logging.getLogger(__name__)` or the
   configured structured logger (`structlog`); never `print` in service code.
   Libraries do not configure logging; applications do, once, at startup.
+- Log messages are always in English, even when the code's comments are Russian.
 - Structured logs (JSON in production) with a stable event name and fields, not
   values interpolated into prose: `log.info("order_paid", extra={"order_id": id})`.
 - With stdlib logging pass arguments lazily (`log.info("x=%s", x)`), not f-strings.

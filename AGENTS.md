@@ -1,4 +1,4 @@
-# AGENTS.md — Universal Agent Kit
+# AGENTS.md - Universal Agent Kit
 
 Always-on instructions for AI coding agents. They apply to every engineering task;
 the user's own skills (section 2) apply to every task of any kind.
@@ -105,7 +105,20 @@ has installed. The full policy is in `ub-quality-gates`.
   exceptions rather than splitting a function artificially to please the metric.
   Check that duplication is actually harmful before removing it.
 
-## 6. Language of code comments
+## 6. Language of text
+
+Russian is allowed only in code comments, docstrings, and documentation. Every
+other text is always written in English, whatever language the file's comments or
+the project's docs use:
+
+- log messages;
+- exception and error messages, API responses and error bodies, validation
+  messages, HTTP status texts;
+- CLI output, help texts, and prompts;
+- identifiers, test names, configuration keys, metric and event names;
+- commit messages, branch names, and pull request titles.
+
+Comments and documentation follow these rules:
 
 - File has English comments → write new comments in English.
 - File has Russian comments → write new comments in Russian.
@@ -114,12 +127,14 @@ has installed. The full policy is in `ub-quality-gates`.
   use Russian.
 - Do not mass-translate existing comments without a reason.
 - Never use the letter «ё» in comments; write «е» instead ("еще", not "ещё").
+- Never use the em dash `—` in comments or documentation; use the hyphen `-`
+  instead (`# Кэш - временный`, not `# Кэш — временный`).
 - No period at the end of a sentence or paragraph when nothing follows it or
   only a blank line does (paragraphs are separated by a blank line). Periods
   between sentences stay: `# Кэш сбрасывается вручную. Иначе тесты падают`
 
-Identifiers, commit messages, and log messages follow the project's existing
-convention (English when there is none).
+Documentation (README, guides, docs) uses the language the project already uses
+for it, and the rules above when it has none.
 
 ## 7. Decision log and reporting
 
